@@ -1,0 +1,91 @@
+---
+title: "Test"
+author: "Kaylee Wissink"
+date: "February 21, 2018"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+##Load Packages
+```{r, warning = FALSE, message=FALSE}
+library(caret)
+library(randomForest)
+
+set.seed(2345)
+```
+## Load the training and testing data
+```{r}
+training <- read.csv("~/pml-training.csv", na.strings=c("NA","#DIV/0!",""))
+testing <- read.csv("~/pml-testing.csv", na.strings=c("NA","#DIV/0!",""))
+```
+##Partion training set 
+We will partition the training set into training and validation set for cross validation purposes
+```{r}
+inTrain <- createDataPartition(y=training$classe, p=0.65, list=FALSE)
+myTrain <- training[inTrain,]
+myValidation <- training[-inTrain,]
+
+dim(myTrain)
+dim(myValidation)
+```
+##Clean Data
+First, we will remove all variables(columns) with greater than 70% NA's
+```{r}
+temp_myTrain <- myTrain
+for(i in 1:length(myTrain))
+  {
+  if(sum(is.na(myTrain[,i]))/nrow(myTrain) > .7) ## get variables in training data where over 70% of the values are NA
+    {
+    for(j in 1:length(temp_myTrain))
+      {
+      if(length(grep(names(myTrain[i]), names(temp_myTrain)[j]))==1) ##iterate through my temp variable until I find the variable name that matches
+        {
+        temp_myTrain <- temp_myTrain[,-j] ## remove variable from temp collection
+      }
+    }
+  }
+}
+
+dim(temp_myTrain)
+```
+Removing variables which will have no impact on prediction (time series and user data - first 7 variables)
+```{r}
+temp_myTrain <- temp_myTrain[,8:length(colnames(temp_myTrain))]
+```
+Apply the previous steps to the data sets
+```{r}
+names <- colnames(temp_myTrain)
+myTrain <- myTrain[names]
+myValidation <- myValidation[names]
+
+names1 <- colnames(temp_myTrain[,-53]) ##accounting for the classe variable in the testing data set
+testing <- testing[names1]
+```
+##Modeling
+We will first use a random forest model since it seems most appropriate for classification purposes.
+```{r}
+mod1 <- randomForest(classe~., data = myTrain)
+```
+Now let's run this on our validation data, which will give us our out of sample error
+```{r}
+pred1 <- predict(mod1, myValidation)
+confusionMatrix(myValidation$classe, pred1)
+```
+Let's run this against our training data to find our in sample error.
+```{r}
+pred2 <- predict(mod1, myTrain)
+confusionMatrix(myTrain$classe, pred2)
+```
+In sample error rate is 0 and out of sample is 1-.9932 = .0068. We'll use this model for final predictions.
+```{}
+```
+##Predictions
+```{r}
+final_pred <- predict(mod1, testing)
+final_pred
+```
+
+
+
